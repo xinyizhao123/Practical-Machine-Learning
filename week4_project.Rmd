@@ -1,0 +1,74 @@
+---
+title: "Practical Machine Learning Project"
+author: "Xinyi Zhao"
+date: "March 3, 2018"
+output: html_document
+---
+
+People regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. To predict the manner in which people did the exercise, we used data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to build a prediction model and to perform cross-validation.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Source
+
+The data for this project was from: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. For more information about the dataset, please see the section on the Weight Lifting Exercise Dataset.
+
+To ensure the quality of prediction, we removed the variables with any missing value. And to perform cross-validation, we splited the training dataset into two datasets -- 60% as a training dataset, and the rest 40% as a testing dataset.
+
+```{r}
+set.seed(56871)
+# set working directory and load data
+setwd("C:/Users/Hitomi/Dropbox/Keep Smile!/coursera/practical_machine_learning")
+library(caret)
+library(rattle)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(repmis)
+library(e1071)
+training <- read.csv("pml-training.csv", na.strings = c("NA", ""))
+testing <- read.csv("pml-testing.csv", na.strings = c("NA", ""))
+#str(training)
+#str(testing)
+
+# The first column is not meaningful, so we remove it
+training <- training[-c(1)]
+testing <- testing[-c(1)]
+
+# Remove variables that have missing data
+training <- training[, colSums(is.na(training)) == 0]
+testing <- testing[, colSums(is.na(testing)) == 0]
+
+# Split the training dataset into two
+inTrain <- createDataPartition(training$classe, p=0.6, list=FALSE)
+myTraining <- training[inTrain, ]
+myTesting <- training[-inTrain, ]
+```
+
+# Prediction Models
+
+We tried two different methods to build the prediction model -- (1) decision trees and (2) random forests
+
+## (1) Decision Trees
+
+```{r}
+modFitA1 <- rpart(classe ~ ., data=myTraining, method="class")
+fancyRpartPlot(modFitA1)
+predictionsA1 <- predict(modFitA1, myTesting, type = "class")
+cmtree <- confusionMatrix(predictionsA1, myTesting$classe); cmtree
+plot(cmtree$table, col = cmtree$byClass, main = paste("Decision Tree Confusion Matrix: Accuracy =", round(cmtree$overall['Accuracy'], 5)))
+```
+
+## (2) Random Forests
+
+```{r}
+modFitB1 <- randomForest(classe ~ ., data=myTraining)
+predictionB1 <- predict(modFitB1, myTesting, type = "class")
+cmrf <- confusionMatrix(predictionB1, myTesting$classe); cmrf
+plot(modFitB1)
+plot(cmrf$table, col = cmtree$byClass, main = paste("Random Forest Confusion Matrix: Accuracy =", round(cmrf$overall['Accuracy'], 5)))
+```
+
+Because the prediction with random forests gave a better accurary than the prediction with decision tree, we eventually chose the prediction model built with random forests. The expected out-of-sample error is `r 1-cmrf$overall['Accuracy']`.
